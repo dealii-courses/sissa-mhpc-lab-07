@@ -33,6 +33,7 @@
 
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_values.h>
+#include <deal.II/fe/mapping_q_generic.h>
 
 #include <deal.II/grid/grid_generator.h>
 #include <deal.II/grid/tria.h>
@@ -86,20 +87,19 @@ protected:
   void
   estimate();
   void
-  compute_error();
-  void
   mark();
   void
   output_results(const unsigned cycle) const;
 
-  Triangulation<dim>         triangulation;
-  std::unique_ptr<FE_Q<dim>> fe;
-  DoFHandler<dim>            dof_handler;
-  AffineConstraints<double>  constraints;
-  SparsityPattern            sparsity_pattern;
-  SparseMatrix<double>       system_matrix;
-  Vector<double>             solution;
-  Vector<double>             system_rhs;
+  Triangulation<dim>                    triangulation;
+  std::unique_ptr<FE_Q<dim>>            fe;
+  std::unique_ptr<MappingQGeneric<dim>> mapping;
+  DoFHandler<dim>                       dof_handler;
+  AffineConstraints<double>             constraints;
+  SparsityPattern                       sparsity_pattern;
+  SparseMatrix<double>                  system_matrix;
+  Vector<double>                        solution;
+  Vector<double>                        system_rhs;
 
   Vector<float>             error_per_cell;
   std::string               estimator_type                    = "exact";
@@ -116,6 +116,7 @@ protected:
 
 
   unsigned int fe_degree           = 1;
+  unsigned int mapping_degree      = 1;
   unsigned int n_refinements       = 4;
   unsigned int n_refinement_cycles = 1;
   std::string  output_filename     = "poisson";

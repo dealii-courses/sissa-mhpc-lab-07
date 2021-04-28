@@ -32,6 +32,7 @@ Poisson<dim>::Poisson()
   : dof_handler(triangulation)
 {
   add_parameter("Finite element degree", fe_degree);
+  add_parameter("Mapping degree", mapping_degree);
   add_parameter("Number of global refinements", n_refinements);
   add_parameter("Output filename", output_filename);
   add_parameter("Forcing term expression", forcing_term_expression);
@@ -138,6 +139,7 @@ Poisson<dim>::setup_system()
   if (!fe)
     {
       fe              = std::make_unique<FE_Q<dim>>(fe_degree);
+      mapping         = std::make_unique<MappingQGeneric<dim>>(mapping_degree);
       const auto vars = dim == 1 ? "x" : dim == 2 ? "x,y" : "x,y,z";
       forcing_term.initialize(vars, forcing_term_expression, constants);
       coefficient.initialize(vars, coefficient_expression, constants);
@@ -157,10 +159,8 @@ Poisson<dim>::setup_system()
   DoFTools::make_hanging_node_constraints(dof_handler, constraints);
 
   for (const auto &id : dirichlet_ids)
-    VectorTools::interpolate_boundary_values(dof_handler,
-                                             id,
-                                             dirichlet_boundary_condition,
-                                             constraints);
+    VectorTools::interpolate_boundary_values(
+      *mapping, dof_handler, id, dirichlet_boundary_condition, constraints);
   constraints.close();
 
 
@@ -182,12 +182,14 @@ Poisson<dim>::assemble_system()
   QGauss<dim>     quadrature_formula(fe->degree + 1);
   QGauss<dim - 1> face_quadrature_formula(fe->degree + 1);
 
-  FEValues<dim> fe_values(*fe,
+  FEValues<dim> fe_values(*mapping,
+                          *fe,
                           quadrature_formula,
                           update_values | update_gradients |
                             update_quadrature_points | update_JxW_values);
 
-  FEFaceValues<dim> fe_face_values(*fe,
+  FEFaceValues<dim> fe_face_values(*mapping,
+                                   *fe,
                                    face_quadrature_formula,
                                    update_values | update_quadrature_points |
                                      update_JxW_values);
@@ -271,7 +273,8 @@ Poisson<dim>::estimate()
     {
       error_per_cell = 0;
       QGauss<dim> quad(fe->degree + 1);
-      VectorTools::integrate_difference(dof_handler,
+      VectorTools::integrate_difference(*mapping,
+                                        dof_handler,
                                         solution,
                                         exact_solution,
                                         error_per_cell,
@@ -285,7 +288,8 @@ Poisson<dim>::estimate()
         neumann[id] = &neumann_boundary_condition;
 
       QGauss<dim - 1> face_quad(fe->degree + 1);
-      KellyErrorEstimator<dim>::estimate(dof_handler,
+      KellyErrorEstimator<dim>::estimate(*mapping,
+                                         dof_handler,
                                          face_quad,
                                          neumann,
                                          solution,
@@ -306,7 +310,8 @@ Poisson<dim>::estimate()
       for (const auto id : neumann_ids)
         neumann[id] = &neumann_boundary_condition;
 
-      KellyErrorEstimator<dim>::estimate(dof_handler,
+      KellyErrorEstimator<dim>::estimate(*mapping,
+                                         dof_handler,
                                          face_quad,
                                          neumann,
                                          solution,
@@ -314,7 +319,8 @@ Poisson<dim>::estimate()
                                          ComponentMask(),
                                          &coefficient);
 
-      FEValues<dim> fe_values(*fe,
+      FEValues<dim> fe_values(*mapping,
+                              *fe,
                               quad,
                               update_hessians | update_JxW_values |
                                 update_quadrature_points);
@@ -348,6 +354,11 @@ Poisson<dim>::estimate()
     {
       AssertThrow(false, ExcNotImplemented());
     }
+  auto global_estimator = error_per_cell.l2_norm();
+  error_table.add_extra_column("estimator", [global_estimator]() {
+    return global_estimator;
+  });
+  error_table.error_from_exact(*mapping, dof_handler, solution, exact_solution);
 }
 
 
@@ -387,26 +398,25 @@ template <int dim>
 void
 Poisson<dim>::output_results(const unsigned cycle) const
 {
-  DataOut<dim> data_out;
+  DataOut<dim>          data_out;
+  DataOutBase::VtkFlags flags;
+  flags.write_higher_order_cells = true;
+  data_out.set_flags(flags);
   data_out.attach_dof_handler(dof_handler);
   data_out.add_data_vector(solution, "solution");
-  data_out.build_patches();
+  auto interpolated_exact = solution;
+  VectorTools::interpolate(*mapping,
+                           dof_handler,
+                           exact_solution,
+                           interpolated_exact);
+  data_out.add_data_vector(interpolated_exact, "exact");
+  data_out.add_data_vector(error_per_cell, "estimator");
+  data_out.build_patches(*mapping,
+                         std::max(mapping_degree, fe_degree),
+                         DataOut<dim>::curved_inner_cells);
   std::string   fname = output_filename + "_" + std::to_string(cycle) + ".vtu";
   std::ofstream output(fname);
   data_out.write_vtu(output);
-}
-
-
-
-template <int dim>
-void
-Poisson<dim>::compute_error()
-{
-  auto global_estimator = error_per_cell.l2_norm();
-  error_table.add_extra_column("estimator", [global_estimator]() {
-    return global_estimator;
-  });
-  error_table.error_from_exact(dof_handler, solution, exact_solution);
 }
 
 
@@ -421,7 +431,6 @@ Poisson<dim>::run()
       assemble_system();
       solve();
       estimate();
-      compute_error();
       output_results(cycle);
       if (cycle < n_refinement_cycles - 1)
         {

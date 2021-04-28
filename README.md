@@ -1,4 +1,4 @@
-#  Lab 06 - A posteriori error estimation and adaptive FEM
+#  Lab 07 - Adaptive FEM and shared memory parallelization
 ## Theory and Practice of Finite Elements
 
 **Luca Heltai** <luca.heltai@sissa.it>
@@ -24,57 +24,39 @@ TEST_F(PoissonTester, Exercise3) {
 }
 ```
 
-By the end of this laboratory, you will have modified your Poisson code to
-allow also non-homogeneous Neumann boundary conditions on different parts of
-the domain, and you will have added some more options to the solver, enabling
-usage of a direct solver, or of some more sofisticated preconditioners.
+By the end of this laboratory, you will have modified your Poisson code to run
+in parallel using shared memory parallelization on multiple threads, and you
+will have some knowledge of Task based parallelization.
+## Lab-07
 
-## Lab-06
-### step-6
+1. Instrument your `Poisson` solver with a `TimerOutput` class, and extract
+timing information about each method of the `Poisson` class (see
+https://www.dealii.org/current/doxygen/deal.II/classTimerOutput.html) using
+scoped timers. Make a couple of test runs, and keep aside both the parameter
+file you used to run the code, and the timing results.
 
-1.  See documentation of step-6 at
-    <https://www.dealii.org/current/doxygen/deal.II/step_6.html>
+2. Read the documentation about shared memory parallelization here:
+   https://www.dealii.org/current/doxygen/deal.II/group__threads.html
 
-2. Add the parameters
+3. Add the parameter
    
-    - `Mapping degree`
-    - `Marking strategy`
-    - `Estimator type`
-    - `Coarsening and refinement factors`
+    - `Maximum number of threads`
    
-where `Mapping degree` controls the degree of the mapping used in the code,
-`Marking strategy` is a choice between `global|fixed_fraction|fixed_number`,
-`Estimator type` is a choice between `exact|kelly|residual`, and
-`Coarsening and refinement factors` is a `std::pair<double, double>` containing
-the arguments to pass to the `GridRefinement::refine_and_coarsen_fixed_*`
-functions
+which is allowed to take an integer number. A value of `-1` means *choose
+automatically*. For any other number, make sure you call `MultithreadInfo::set_thread_limit` with the given argument.
 
-1. Make sure all `FEValues` classes use a mapping with the correct order, and
-make sure you use the correct mapping in the output as well (if you have a
-recent Paraview)
+4. Make a *coarse granined* parallelization using `Threads::Thread` or
+`Threads::ThreadGroup` on each major task of your `Poisson` solver. Experiment
+by changing the argument above, and report on the speed up of your code when
+using multiple threads, compared with the results you obtained in step 1 above.
 
-4. Add a `Vector<float` field `error_per_cell` to `Poisson`, to be filled by
-the method `estimate`
+5. Use `Threads::split_range` to assemble the system in parallel with as many
+CPUS as you have available. Check that you do get an improvement.
 
-5. Add a method `residual_error_estimator` that computes the residual error estimator, using `FEInterfaceValues` and `FEValues`
-
-6. Add a method `estimate` to the `Poisson` class, to compute the H1 seminorm
-of the difference between the exact and computed solution if `Estimator type`
-is `exact`, calls `KellyErrorEstimator<dim>::estimate` if `Estimator type` is
-`kelly`, and calls `residual_error_estimator` if `Estimator type` is `residual`
-
-7. Add to the convergence tables also the estimator you computed. This should be
-identical to the `H1` semi-norm in the case where `Estimator type` is `exact`
-
-8. Taking the exact solution computed on the L-shaped domain, compute the rate
-at which the adaptive finite element method converges in terms of the number of
-degrees of freedom using the three estimators above
-
-9. Set zero boundary conditions, forcing term equal to four, exact solution
-equal to `-x^2-y^2+1` and solve the problem on a circle with center in the
-origin and radius one, for various finite element and mapping degrees. What do
-you observe when the mapping degree does not match the finite element degree?
-How do you explain this?
-
-10. Create a test that reproduces exactly the behaviour of `step-6`, using only
-your parameter file
+6. Using the default `ScratchData` and `CopyData` objects of deal.II (i.e.,
+https://www.dealii.org/current/doxygen/deal.II/classMeshWorker_1_1ScratchData.html
+and
+https://www.dealii.org/current/doxygen/deal.II/structMeshWorker_1_1CopyData.html
+replace the `Threads::split_range` assembly by one based on the use of the
+`WorkStream::run` method, and compare the running times with your original
+code.

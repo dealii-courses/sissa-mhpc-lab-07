@@ -25,6 +25,7 @@
 var NAVTREE =
 [
   [ "Theory and Practice of FEM -- a parametrized Poisson Solver", "index.html", [
+    [ "Adaptive FEM for Poisson problem", "index.html", null ],
     [ "Classes", "annotated.html", [
       [ "Class List", "annotated.html", "annotated_dup" ],
       [ "Class Index", "classes.html", null ],

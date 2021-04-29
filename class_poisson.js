@@ -8,6 +8,7 @@ var class_poisson =
     [ "mark", "class_poisson.html#a58d6ef62afa210acf7f2e22bad2cbbf4", null ],
     [ "output_results", "class_poisson.html#a5897480bfbdd9a8e8e268e3951ee8956", null ],
     [ "parse_string", "class_poisson.html#a50b1ade166a0c6c61d78b720fdb2c9cc", null ],
+    [ "print_system_info", "class_poisson.html#a93e5b8459f8b8828bf066c24dee9f51e", null ],
     [ "refine_grid", "class_poisson.html#a3e0a56acdef3cedfff62990e26d6cdc7", null ],
     [ "run", "class_poisson.html#aa225c7dfbf19ab1b669a5a5b8f81b2e3", null ],
     [ "setup_system", "class_poisson.html#a454e5a3a5e84a3570cbe12641f7e93d5", null ],

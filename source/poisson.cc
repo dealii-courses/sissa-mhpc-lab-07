@@ -22,6 +22,7 @@
 #include <deal.II/grid/grid_refinement.h>
 
 #include <deal.II/lac/sparse_direct.h>
+#include <deal.II/lac/trilinos_precondition.h>
 
 #include <deal.II/numerics/error_estimator.h>
 
@@ -30,6 +31,7 @@ using namespace dealii;
 template <int dim>
 Poisson<dim>::Poisson()
   : dof_handler(triangulation)
+  , solver_control("Solver control", 1000, 1e-12, 1e-12)
 {
   add_parameter("Finite element degree", fe_degree);
   add_parameter("Mapping degree", mapping_degree);
@@ -256,9 +258,14 @@ Poisson<dim>::solve()
     }
   else
     {
-      SolverControl            solver_control(1000, 1e-12);
       SolverCG<Vector<double>> solver(solver_control);
+#ifdef DEAL_II_WITH_TRILINOS
+      TrilinosWrappers::PreconditionAMG amg;
+      amg.initialize(system_matrix);
+      solver.solve(system_matrix, solution, system_rhs, amg);
+#else
       solver.solve(system_matrix, solution, system_rhs, PreconditionIdentity());
+#endif
     }
   constraints.distribute(solution);
 }
